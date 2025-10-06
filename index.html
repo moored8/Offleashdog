@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Independent Dog - Colorado Off-Leash Areas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #map {
+            height: 400px;
+            border-radius: 0.5rem;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 0.5rem;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        .park-list-container::-webkit-scrollbar, .atoz-list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .park-list-container::-webkit-scrollbar-track, .atoz-list-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .park-list-container::-webkit-scrollbar-thumb, .atoz-list-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .park-list-container::-webkit-scrollbar-thumb:hover, .atoz-list-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-amber-50 text-slate-700">
+
+    <!-- Header -->
+    <header class="bg-sky-700 text-white p-6 shadow-md">
+        <div class="container mx-auto flex items-center justify-between">
+            <h1 class="text-4xl font-bold flex items-center">
+                <span role="img" aria-label="Paw print" class="mr-3 text-4xl">🐾</span>
+                Independent Dog
+            </h1>
+            <p class="text-sky-100 hidden md:block">Your Guide to Colorado's Off-Leash Adventures</p>
+            <nav class="hidden md:block">
+                <a href="#atoZListSection" class="bg-sky-600 hover:bg-sky-800 text-white py-2 px-4 rounded-md transition-colors">A-Z List of Parks</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 md:p-8">
+
+        <!-- Introduction Section -->
+        <section id="introduction" class="mb-8 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-3xl font-semibold text-sky-700 mb-4">Welcome to Independent Dog!</h2>
+            <p class="mb-4 text-lg">
+                This platform is your definitive digital resource for discovering off-leash dog areas across the beautiful state of Colorado. Our goal is to provide accurate, comprehensive information about dog parks, trails, and open spaces, complete with essential details, images of happy dogs off-leash, and interactive maps. We aim to simplify your planning for outdoor adventures with your canine companions.
+            </p>
+            <p class="text-md mb-4">
+                Colorado offers diverse off-leash opportunities, from fully fenced urban parks to expansive open trails where voice control is key. Use our directory to find the perfect spot for your furry friend to roam freely and safely.
+            </p>
+            <div class="mt-6">
+                <h3 class="text-xl font-semibold text-sky-600 mb-2">Park Types in Our Sample Data:</h3>
+                <div class="chart-container bg-gray-50 p-4 rounded-lg">
+                    <canvas id="fencedStatusChart"></canvas>
+                </div>
+                <p class="text-sm text-slate-600 mt-2 text-center">This chart shows the distribution of fenced statuses among the sample parks currently listed.</p>
+            </div>
+        </section>
+
+        <!-- Filters Section -->
+        <section id="filters" class="mb-8 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-2xl font-semibold text-sky-700 mb-4">Find Your Perfect Park</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <label for="cityFilter" class="block text-sm font-medium text-slate-700 mb-1">City/Town:</label>
+                    <select id="cityFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="">All Cities</option>
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div>
+                    <label for="fencedFilter" class="block text-sm font-medium text-slate-700 mb-1">Fenced Status:</label>
+                    <select id="fencedFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="">Any</option>
+                        <option value="Fully Fenced">Fully Fenced</option>
+                        <option value="Partially Fenced">Partially Fenced</option>
+                        <option value="Unfenced">Unfenced</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="waterAccessFilter" class="block text-sm font-medium text-slate-700 mb-1">Water Access:</label>
+                    <select id="waterAccessFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="">Any</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                         <option value="Seasonal">Seasonal</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="smallDogAreaFilter" class="block text-sm font-medium text-slate-700 mb-1">Small Dog Area:</label>
+                    <select id="smallDogAreaFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="">Any</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 lg:col-span-4">
+                     <label for="nameSearch" class="block text-sm font-medium text-slate-700 mb-1">Search by Name:</label>
+                     <input type="text" id="nameSearch" placeholder="Enter park name..." class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                </div>
+            </div>
+        </section>
+
+        <!-- Map and List Section -->
+        <section id="directory" class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div class="lg:col-span-2 bg-white p-4 rounded-lg shadow">
+                <h2 class="text-2xl font-semibold text-sky-700 mb-4">Park Locations</h2>
+                <div id="map"></div>
+            </div>
+            <div class="lg:col-span-1 bg-white p-4 rounded-lg shadow">
+                <h2 class="text-2xl font-semibold text-sky-700 mb-4">Park Directory</h2>
+                <div id="parkList" class="park-list-container space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                    <!-- Park cards will be populated by JavaScript -->
+                     <p id="noResults" class="text-slate-500 hidden">No parks match your current filters.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- A-Z List Section -->
+        <section id="atoZListSection" class="mb-8 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-3xl font-semibold text-sky-700 mb-4">A-Z List of All Off-Leash Areas</h2>
+            <p class="mb-4 text-lg">
+                Browse all the off-leash areas in our directory alphabetically. Click on any park name to view its detailed information.
+            </p>
+            <div id="atoZList" class="atoz-list-container grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 max-h-[600px] overflow-y-auto pr-2">
+                <!-- A-Z list will be populated by JavaScript -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Detail Modal -->
+    <div id="parkModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
+            <button id="closeModal" class="absolute top-4 right-4 text-slate-600 hover:text-slate-800 text-2xl">×</button>
+            <div id="modalContent">
+                <!-- Modal content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-sky-800 text-sky-100 p-6 text-center mt-12">
+        <p>© 2025 Independent Dog. All rights reserved.</p>
+        <p class="text-sm mt-2">Please always verify park rules and conditions with official sources before visiting.</p>
+    </footer>
+
+    <script>
+        // Sample Park Data
+        const parkData = [
+            {
+                id: 'CO-AUR-CHCR001',
+                name: 'Cherry Creek State Park Dog Off-Leash Area',
+                city: 'Aurora',
+                address: '4201 S Parker Rd, Aurora, CO 80014',
+                gps: [39.6157, -104.8752],
+                fencedStatus: 'Fully Fenced',
+                smallDogArea: 'No',
+                waterAccess: 'Yes',
+                restrooms: 'Yes',
+                agilityEquipment: 'No',
+                trails: 'Yes (Extensive)',
+                fees: 'Yes (Park Pass + DOLA Pass)',
+                hours: '5:00 AM – 10:00 PM (Park Hours)',
+                keyRules: [
+                    'Valid park pass and DOLA pass required.',
+                    'Dogs must be under voice control.',
+                    'Limit 3 dogs per handler.',
+                    'Clean up pet waste.',
+                    'Leash required outside DOLA.'
+                ],
+                websiteUrl: 'https://cpw.state.co.us/placestogo/parks/CherryCreek',
+                imageUrl: 'https://placehold.co/600x400/A0AEC0/FFFFFF?text=Happy+Dogs+Playing+Off-Leash+in+Water',
+                description: 'A very popular and expansive 107-acre off-leash area within Cherry Creek State Park, featuring trails and Cherry Creek access for dogs to play and swim.',
+                reviewSnippets: [
+                    'Great open space, my dog loves the water!',
+                    'Can get crowded on weekends, but worth the fee for the size.',
+                    'Trails are well-maintained, but watch out for rattlesnakes in summer.',
+                    'Plenty of room to run, but parking can be tricky during peak hours.'
+                ]
+            },
+            {
+                id: 'CO-COS-BEAR001',
+                name: 'Bear Creek Dog Park',
+                city: 'Colorado Springs',
+                address: '1704 S 21st St, Colorado Springs, CO 80904',
+                gps: [38.8381, -104.8645],
+                fencedStatus: 'Fully Fenced',
+                smallDogArea: 'Yes',
+                waterAccess: 'Yes',
+                restrooms: 'Yes',
+                agilityEquipment: 'Yes',
+                trails: 'Yes (Within park and adjacent)',
+                fees: 'No',
+                hours: 'Dawn to Dusk',
+                keyRules: [
+                    'Dogs must be leashed until inside the fenced area.',
+                    'Owners must clean up waste.',
+                    'Dogs must be licensed and vaccinated.',
+                    'Aggressive dogs prohibited.'
+                ],
+                websiteUrl: 'https://coloradosprings.gov/parks/page/bear-creek-dog-park',
+                imageUrl: 'https://placehold.co/600x400/A0AEC0/FFFFFF?text=Dogs+Enjoying+Agility+Course+Off-Leash',
+                description: 'A 25-acre fully-fenced park with a 2-acre small dog area, agility course, and access to Bear Creek. Features varied terrain including open fields and wooded areas.',
+                reviewSnippets: [
+                    'Fantastic agility course, my dog loves it!',
+                    'The small dog area is a lifesaver for my little one.',
+                    'Can get muddy near the creek after rain, but overall a great park.',
+                    'Always clean and well-maintained, highly recommend.'
+                ]
+            },
+            {
+                id: 'CO-WES-WHOS001',
+                name: 'Westminster Hills Open Space Off-Leash Area',
+                city: 'Westminster',
+                address: '10499 Simms St, Westminster, CO 80005 (Main Lot)',
+                gps: [39.8860, -105.1500],
+                fencedStatus: 'Partially Fenced',
+                smallDogArea: 'No',
+                waterAccess: 'Seasonal',
+                restrooms: 'Yes (Portable)',
+                agilityEquipment: 'No',
+                trails: 'Yes (Extensive network)',
+                fees: 'No',
+                hours: 'Sunrise to Sunset',
+                keyRules: [
+                    'Dogs must be under voice and sight control.',
+                    'Owners must carry a leash.',
+                    'Clean up pet waste.',
+                    'Respect wildlife and sensitive habitats.'
+                ],
+                websiteUrl: 'https://www.westminsterco.gov/ParksRecreation/ParksTrailsOpenSpace/WestminsterHillsOff-LeashDogPark',
+                imageUrl: 'https://placehold.co/600x400/A0AEC0/FFFFFF?text=Dogs+Running+Freely+in+Open+Space',
+                description: 'An expansive 470-acre area offering panoramic views and extensive trails for off-leash dogs. Great for dogs that need room to run.',
+                reviewSnippets: [
+                    'Vast open space, perfect for long runs.',
+                    'Beautiful views, but can be windy.',
+                    'Voice control is a must here, as it\'s not fully fenced.',
+                    'Limited shade, so bring water on hot days.'
+                ]
+            },
+            {
+                id: 'CO-DEN-RAIL001',
+                name: 'Railyard Dog Park',
+                city: 'Denver',
+                address: '19th St & Little Raven St, Denver, CO 80202',
+                gps: [39.7570, -105.0030],
+                fencedStatus: 'Fully Fenced',
+                smallDogArea: 'Yes',
+                waterAccess: 'Yes',
+                restrooms: 'No',
+                agilityEquipment: 'No',
+                trails: 'No (Urban park setting)',
+                fees: 'No',
+                hours: '5:00 AM - 11:00 PM (Lighted)',
+                keyRules: [
+                    'Dogs must be spayed/neutered or have an intact permit.',
+                    'Current rabies and Denver dog license required.',
+                    'Clean up pet waste.',
+                    'Separate areas for high energy and low energy dogs.'
+                ],
+                websiteUrl: 'https://www.denvergov.org/Government/Agencies-Departments-Offices/Agencies-Departments-Offices-Directory/Parks-Recreation/Parks/Dog-Parks',
+                imageUrl: 'https://placehold.co/600x400/A0AEC0/FFFFFF?text=Off-Leash+Dogs+in+Urban+Park',
+                description: 'A popular urban dog park in downtown Denver, featuring separate fenced areas for high and low energy dogs, a sandy surface, and lighting for evening use.',
+                reviewSnippets: [
+                    'Great for city dogs, very convenient location.',
+                    'The sand can get everywhere, but the dogs love it.',
+                    'Good separation for different energy levels.',
+                    'Gets busy, especially after work hours.'
+                ]
+            },
+            {
+                id: 'CO-COS-REDR001',
+                name: 'Red Rock Canyon Open Space (Dog Loops)',
+                city: 'Colorado Springs',
+                address: '3550 W High St, Colorado Springs, CO 80904',
+                gps: [38.8482, -104.8830],
+                fencedStatus: 'Unfenced',
+                smallDogArea: 'No',
+                waterAccess: 'No (Bring your own)',
+                restrooms: 'Yes (At main trailheads)',
+                agilityEquipment: 'No',
+                trails: 'Yes (Designated off-leash loops)',
+                fees: 'No',
+                hours: 'Dawn to Dusk',
+                keyRules: [
+                    'Dogs allowed off-leash ONLY on designated dog loops.',
+                    'Dogs must be under strict voice control.',
+                    'Clean up pet waste.',
+                    'Leash required on all other trails in the open space.'
+                ],
+                websiteUrl: 'https://coloradosprings.gov/parks/page/red-rock-canyon-open-space',
+                imageUrl: 'https://placehold.co/600x400/A0AEC0/FFFFFF?text=Off-Leash+Dog+on+Scenic+Trail',
+                description: 'Offers designated unfenced off-leash loops with stunning red rock formations as a backdrop. Strict voice control is essential. Other trails in the park require leashes.',
+                reviewSnippets: [
+                    'Stunning scenery for a dog walk!',
+                    'Important to stay on the off-leash loops, rangers are strict.',
+                    'No water, so definitely pack enough for you and your dog.',
+                    'Trails can be rocky, good boots recommended.'
+                ]
+            },
+            {
+                id: 'CO-LIT-CHAT001',
+                name: 'Chatfield State Park Dog Off-Leash Area',
+                city: 'Littleton',
+                address: '11500 N Roxborough Park Rd, Littleton, CO 80125',
+                gps: [39.5385, -105.0850],
+                fencedStatus: 'Fully Fenced',
+                smallDogArea: 'No',
+                waterAccess: 'Yes (Ponds)',
+                restrooms: 'Yes',
+                agilityEquipment: 'No',
+                trails: 'Yes (Paved and unpaved)',
+                fees: 'Yes (Park Pass + DOLA Pass)',
+                hours: '5:00 AM – 10:00 PM (Park Hours)',
+                keyRules: [
+                    'Valid park pass and DOLA pass required.',
+                    'Dogs must be under voice control.',
+                    'Clean up pet waste.',
+                    'Two ponds available for dogs to swim.'
+                ],
+                websiteUrl: 'https://cpw.state.co.us/placestogo/parks/Chatfield',
+                imageUrl: 'https://placehold.co/600x400/A0AEC0/FFFFFF?text=Off-Leash+Dog+Splashing+in+Pond',
+                description: 'A large 69-acre off-leash area within Chatfield State Park, featuring miles of walking trails and two ponds where dogs can swim.',
+                reviewSnippets: [
+                    'My dog loves swimming in the ponds here!',
+                    'Great trails for a long walk, very scenic.',
+                    'Can get very busy, especially on warm days.',
+                    'Remember to buy both the park and DOLA passes.'
+                ]
+            }
+        ];
+
+        let map;
+        let markers = [];
+        let currentChart = null;
+
+        const cityFilter = document.getElementById('cityFilter');
+        const fencedFilter = document.getElementById('fencedFilter');
+        const waterAccessFilter = document.getElementById('waterAccessFilter');
+        const smallDogAreaFilter = document.getElementById('smallDogAreaFilter');
+        const nameSearch = document.getElementById('nameSearch');
+        const parkListContainer = document.getElementById('parkList');
+        const modal = document.getElementById('parkModal');
+        const closeModalButton = document.getElementById('closeModal');
+        const modalContent = document.getElementById('modalContent');
+        const noResultsP = document.getElementById('noResults');
+        const atoZListDiv = document.getElementById('atoZList');
+
+
+        function initMap() {
+            map = L.map('map').setView([39.5501, -105.7821], 7);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+
+        function populateCityFilter() {
+            const cities = [...new Set(parkData.map(park => park.city))].sort();
+            cities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                cityFilter.appendChild(option);
+            });
+        }
+        
+        function renderParkCards(filteredParks) {
+            parkListContainer.innerHTML = '';
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            if (filteredParks.length === 0) {
+                noResultsP.classList.remove('hidden');
+            } else {
+                noResultsP.classList.add('hidden');
+            }
+
+            filteredParks.forEach(park => {
+                const card = document.createElement('div');
+                card.className = 'bg-amber-50 p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-amber-200';
+                card.innerHTML = `
+                    <img src="${park.imageUrl.replace('600x400', '300x200')}" alt="Image of ${park.name}" class="w-full h-40 object-cover rounded-md mb-3">
+                    <h3 class="text-xl font-semibold text-sky-700 mb-1">${park.name}</h3>
+                    <p class="text-sm text-slate-600 mb-1"><span class="font-medium">City:</span> ${park.city}</p>
+                    <p class="text-sm text-slate-600 mb-2"><span class="font-medium">Fenced:</span> ${park.fencedStatus}</p>
+                    <button class="view-details-btn mt-2 w-full bg-sky-600 text-white py-2 px-4 rounded-md hover:bg-sky-700 transition-colors text-sm" data-id="${park.id}">View Details</button>
+                `;
+                card.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('view-details-btn') || e.target.closest('.view-details-btn')) {
+                        showModal(park.id);
+                    } else {
+                         showModal(park.id);
+                         map.setView(park.gps, 13);
+                         const marker = markers.find(m => m.options.parkId === park.id);
+                         if(marker) marker.openPopup();
+                    }
+                });
+                parkListContainer.appendChild(card);
+
+                const marker = L.marker(park.gps, { parkId: park.id })
+                    .addTo(map)
+                    .bindPopup(`<b>${park.name}</b><br>${park.city}<br><button class="leaflet-popup-button view-details-btn bg-sky-500 text-white px-2 py-1 rounded mt-1 text-xs" data-id="${park.id}">Details</button>`);
+                
+                marker.on('popupopen', () => {
+                    document.querySelectorAll('.leaflet-popup-button.view-details-btn').forEach(btn => {
+                        btn.removeEventListener('click', handlePopupDetailsClick);
+                        btn.addEventListener('click', handlePopupDetailsClick);
+                    });
+                });
+                markers.push(marker);
+            });
+        }
+
+        function handlePopupDetailsClick(event) {
+            const parkId = event.target.dataset.id;
+            showModal(parkId);
+        }
+
+        function filterParks() {
+            const city = cityFilter.value;
+            const fenced = fencedFilter.value;
+            const water = waterAccessFilter.value;
+            const smallDog = smallDogAreaFilter.value;
+            const searchTerm = nameSearch.value.toLowerCase();
+
+            const filtered = parkData.filter(park => {
+                return (city === '' || park.city === city) &&
+                       (fenced === '' || park.fencedStatus === fenced) &&
+                       (water === '' || park.waterAccess === water || (water === 'Yes' && park.waterAccess === 'Seasonal')) &&
+                       (smallDog === '' || park.smallDogArea === smallDog) &&
+                       (park.name.toLowerCase().includes(searchTerm));
+            });
+            renderParkCards(filtered);
+        }
+
+        async function callGeminiAPI(prompt, isStructured = false) {
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            let payload = { contents: chatHistory };
+
+            if (isStructured) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: { "type": "STRING" }
+                    }
+                };
+            }
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    return isStructured ? JSON.parse(text) : text;
+                } else {
+                    return "Error: Could not generate content.";
+                }
+            } catch (error) {
+                return "Error: Failed to connect to AI service.";
+            }
+        }
+
+        async function generateReviewSummary(park) {
+            const reviewSummaryDiv = document.getElementById('reviewSummary');
+            reviewSummaryDiv.innerHTML = '<p class="text-center text-slate-500">Generating summary... <span class="animate-pulse">🐶</span></p>';
+            
+            const reviewPrompt = `Summarize the sentiment and key points from these hypothetical reviews for "${park.name}", a dog park in ${park.city}. Focus on what dog owners might appreciate or need to know.
+            Reviews: ${park.reviewSnippets.join('; ')}
+            Park Description: ${park.description}
+            Key Rules: ${park.keyRules.join('; ')}
+            `;
+            
+            const summary = await callGeminiAPI(reviewPrompt);
+            reviewSummaryDiv.innerHTML = `<p class="text-slate-700">${summary}</p>`;
+        }
+
+        async function generatePackingList(park) {
+            const packingListDiv = document.getElementById('packingList');
+            packingListDiv.innerHTML = '<p class="text-center text-slate-500">Generating packing list... <span class="animate-pulse">🎒</span></p>';
+
+            const packingPrompt = `Generate a concise packing list for a dog owner visiting "${park.name}" in ${park.city}. Consider the following park characteristics:
+            Fenced Status: ${park.fencedStatus}
+            Water Access: ${park.waterAccess}
+            Restrooms: ${park.restrooms}
+            Fees: ${park.fees}
+            Trails: ${park.trails}
+            Small Dog Area: ${park.smallDogArea}
+            Key Rules: ${park.keyRules.join('; ')}
+            Provide the list as a JSON array of strings.`;
+
+            const listItems = await callGeminiAPI(packingPrompt, true);
+
+            if (Array.isArray(listItems)) {
+                packingListDiv.innerHTML = `
+                    <ul class="list-disc list-inside text-slate-700 space-y-1">
+                        ${listItems.map(item => `<li>${item}</li>`).join('')}
+                    </ul>
+                `;
+            } else {
+                packingListDiv.innerHTML = `<p class="text-red-500">Could not generate packing list. Please try again.</p>`;
+            }
+        }
+
+        function showModal(parkId) {
+            const park = parkData.find(p => p.id === parkId);
+            if (!park) return;
+
+            modalContent.innerHTML = `
+                <img src="${park.imageUrl}" alt="Image of ${park.name}" class="w-full h-64 object-cover rounded-t-lg mb-4">
+                <h2 class="text-3xl font-bold text-sky-700 mb-2">${park.name}</h2>
+                <p class="text-md text-slate-600 mb-1"><span class="font-semibold">📍 Address:</span> <a href="http://maps.google.com/?q=${encodeURIComponent(park.address)}" target="_blank" class="text-sky-600 hover:underline">${park.address}</a></p>
+                <p class="text-md text-slate-600 mb-1"><span class="font-semibold">🏙️ City:</span> ${park.city}</p>
+                <p class="text-md text-slate-600 mb-3"><span class="font-semibold">GPS:</span> ${park.gps[0]}, ${park.gps[1]}</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div><p><span class="font-semibold">🚧 Fenced:</span> ${park.fencedStatus}</p></div>
+                    <div><p><span class="font-semibold">🐾 Small Dog Area:</span> ${park.smallDogArea}</p></div>
+                    <div><p><span class="font-semibold">💧 Water Access:</span> ${park.waterAccess}</p></div>
+                    <div><p><span class="font-semibold">🚻 Restrooms:</span> ${park.restrooms}</p></div>
+                    <div><p><span class="font-semibold">🤸 Agility Equip:</span> ${park.agilityEquipment}</p></div>
+                    <div><p><span class="font-semibold">🌲 Trails:</span> ${park.trails}</p></div>
+                    <div><p><span class="font-semibold">💰 Fees:</span> ${park.fees}</p></div>
+                    <div><p><span class="font-semibold">⏰ Hours:</span> ${park.hours}</p></div>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="text-lg font-semibold text-sky-600 mb-1">Key Rules:</h4>
+                    <ul class="list-disc list-inside text-slate-600 space-y-1">
+                        ${park.keyRules.map(rule => `<li>${rule}</li>`).join('')}
+                    </ul>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="text-lg font-semibold text-sky-600 mb-1">Description:</h4>
+                    <p class="text-slate-600">${park.description}</p>
+                </div>
+
+                ${park.websiteUrl ? `<a href="${park.websiteUrl}" target="_blank" class="inline-block bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors mr-2">Visit Official Website 🌐</a>` : ''}
+                
+                <div class="mt-6 border-t border-slate-200 pt-4">
+                    <h3 class="text-xl font-semibold text-sky-700 mb-3">AI Powered Insights ✨</h3>
+                    <button id="generateReviewSummaryBtn" class="bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition-colors mr-2 mb-3">✨ Get Review Summary</button>
+                    <button id="generatePackingListBtn" class="bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 transition-colors mb-3">✨ Generate Packing List</button>
+                    
+                    <div id="reviewSummarySection" class="mt-4 p-4 bg-blue-50 rounded-lg hidden">
+                        <h4 class="text-lg font-semibold text-blue-800 mb-2">Review Summary:</h4>
+                        <div id="reviewSummary" class="text-slate-700"></div>
+                    </div>
+
+                    <div id="packingListSection" class="mt-4 p-4 bg-emerald-50 rounded-lg hidden">
+                        <h4 class="text-lg font-semibold text-emerald-800 mb-2">Suggested Packing List:</h4>
+                        <div id="packingList" class="text-slate-700"></div>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+
+            document.getElementById('generateReviewSummaryBtn').onclick = () => {
+                document.getElementById('reviewSummarySection').classList.remove('hidden');
+                generateReviewSummary(park);
+            };
+            document.getElementById('generatePackingListBtn').onclick = () => {
+                document.getElementById('packingListSection').classList.remove('hidden');
+                generatePackingList(park);
+            };
+        }
+
+        function hideModal() {
+            modal.classList.add('hidden');
+            modalContent.innerHTML = '';
+        }
+        
+        function initializeFencedStatusChart() {
+            const ctx = document.getElementById('fencedStatusChart').getContext('2d');
+            
+            const statusCounts = parkData.reduce((acc, park) => {
+                acc[park.fencedStatus] = (acc[park.fencedStatus] || 0) + 1;
+                return acc;
+            }, {});
+
+            const labels = Object.keys(statusCounts);
+            const data = Object.values(statusCounts);
+
+            const backgroundColors = [
+                'rgba(56, 189, 248, 0.6)', 
+                'rgba(251, 191, 36, 0.6)',
+                'rgba(163, 230, 53, 0.6)',
+                'rgba(248, 113, 113, 0.6)'
+            ];
+            const borderColors = [
+                'rgba(14, 165, 233, 1)',
+                'rgba(245, 158, 11, 1)',
+                'rgba(132, 204, 22, 1)',
+                'rgba(239, 68, 68, 1)'
+            ];
+
+
+            if(currentChart) {
+                currentChart.destroy();
+            }
+
+            currentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Number of Parks',
+                        data: data,
+                        backgroundColor: backgroundColors.slice(0, labels.length),
+                        borderColor: borderColors.slice(0, labels.length),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderAtoZList() {
+            atoZListDiv.innerHTML = '';
+            const sortedParks = [...parkData].sort((a, b) => a.name.localeCompare(b.name));
+
+            sortedParks.forEach(park => {
+                const listItem = document.createElement('div');
+                listItem.className = 'p-3 bg-amber-50 rounded-md shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-amber-200';
+                listItem.innerHTML = `<h3 class="text-lg font-semibold text-sky-700">${park.name}</h3><p class="text-sm text-slate-600">${park.city}</p>`;
+                listItem.addEventListener('click', () => showModal(park.id));
+                atoZListDiv.appendChild(listItem);
+            });
+        }
+
+
+        // Event Listeners
+        cityFilter.addEventListener('change', filterParks);
+        fencedFilter.addEventListener('change', filterParks);
+        waterAccessFilter.addEventListener('change', filterParks);
+        smallDogAreaFilter.addEventListener('change', filterParks);
+        nameSearch.addEventListener('input', filterParks);
+        closeModalButton.addEventListener('click', hideModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                hideModal();
+            }
+        });
+
+        document.querySelector('a[href="#atoZListSection"]').addEventListener('click', (e) => {
+            e.preventDefault();
+            renderAtoZList();
+            document.getElementById('atoZListSection').scrollIntoView({ behavior: 'smooth' });
+        });
+
+
+        // Initial Load
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            populateCityFilter();
+            renderParkCards(parkData);
+            initializeFencedStatusChart();
+            renderAtoZList();
+        });
+
+    </script>
+</body>
+</html>
